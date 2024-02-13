@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import functools
 import os
-import secrets
 
 import googleapiclient.discovery
 
 from pytube import YouTube
+
+from quantralib.erandom import EOSRandom
 
 
 class DefaultEnvAction(argparse.Action):
@@ -101,8 +103,22 @@ def extract_id_from_url(video_url):
     return YouTube(video_url).video_id
 
 
-def choose_winner_randomly(objs):
-    return secrets.choice(list(objs))
+def choose_winner_randomly(objs, random_generator):
+    # qrandom returns short int, so, if we have
+    # big number of comments, additional
+    # random queries may be required
+    repeats = 1
+    objs_len = len(objs)
+
+    while objs_len > 2**(16*repeats):
+        repeats += 1
+
+    pos = 0
+    for _ in range(repeats):
+        r = random_generator()
+        pos = (pos << 16) + r
+
+    return list(objs)[pos % objs_len]
 
 
 def main():
@@ -114,7 +130,15 @@ def main():
         c["snippet"]["topLevelComment"]["snippet"]["authorDisplayName"]
         for c in comments
     }
-    winner = choose_winner_randomly(unique_authors)
+
+    qrandom = EOSRandom(contract_account=args.contract_account,
+                        p_keys=args.private_key,
+                        tokens_account=args.tokens_account,
+                        chain_url=args.chain_url)
+
+    random_generator = functools.partial(qrandom.buy_random, args.user_account)
+
+    winner = choose_winner_randomly(unique_authors, random_generator)
 
     print(f"Total top-level unique commentators: {len(unique_authors)}")
     print(f"Winner is: {winner}")
