@@ -142,7 +142,3 @@ def main():
 
     print(f"Total top-level unique commentators: {len(unique_authors)}")
     print(f"Winner is: {winner}")
-
-
-if __name__ == "__main__":
-    main()
