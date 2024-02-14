@@ -5,6 +5,7 @@ import functools
 import os
 
 import googleapiclient.discovery
+import googleapiclient.errors
 
 from pytube import YouTube
 
@@ -91,10 +92,13 @@ def get_all_youtube_toplevel_comments(video_id, api_key):
     request = youtube.commentThreads().list(
         part="snippet", videoId=video_id, maxResults=100
     )
-    while request:
-        response = request.execute()
-        res.extend(response["items"])
-        request = youtube.commentThreads().list_next(request, response)
+    try:
+        while request:
+            response = request.execute()
+            res.extend(response["items"])
+            request = youtube.commentThreads().list_next(request, response)
+    except googleapiclient.errors.HttpError:
+        pass
 
     return res
 
@@ -126,6 +130,11 @@ def main():
 
     video_id = extract_id_from_url(args.url)
     comments = get_all_youtube_toplevel_comments(video_id, args.api_key)
+
+    if not comments:
+        print(f"Comments for the video {args.url} are not available")
+        return
+
     unique_authors = {
         c["snippet"]["topLevelComment"]["snippet"]["authorDisplayName"]
         for c in comments
